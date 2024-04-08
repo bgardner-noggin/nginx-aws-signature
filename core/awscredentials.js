@@ -205,7 +205,7 @@ function _writeCredentialsToKeyValStore(r, credentials) {
  * @private
  */
 function _writeCredentialsToFile(credentials) {
-    fs.writeFileSync(_credentialsTempFile(), JSON.stringify(credentials));
+    fs.writeFileSync(_credentialsTempFile(), JSON.stringify(credentials),{mode:0x400});
 }
 
 /**

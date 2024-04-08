@@ -75,7 +75,7 @@ function testReadCredentialsFromFilePath() {
     var tempFile = `${tempDir}/credentials-unit-test-${uniqId}.json`;
     var testData = '{"accessKeyId":"A","secretAccessKey":"B",' +
         '"sessionToken":"C","expiration":"2022-02-15T04:49:08Z"}';
-    fs.writeFileSync(tempFile, testData);
+    fs.writeFileSync(tempFile, testData,{mode:0x400});
 
     try {
         process.env['AWS_CREDENTIALS_TEMP_FILE'] = tempFile;
@@ -93,6 +93,45 @@ function testReadCredentialsFromFilePath() {
         if (credentials.expiration !== testDataAsJSON.expiration) {
             throw 'JSON test data does not match credentials [expiration]';
         }
+    } finally {
+        if (originalCredentialPath) {
+            process.env['AWS_CREDENTIALS_TEMP_FILE'] = originalCredentialPath;
+        }
+        if (fs.statSync(tempFile, {throwIfNoEntry: false})) {
+            fs.unlinkSync(tempFile);
+        }
+    }
+}
+
+function testWriteCredentialsToFilePath() {
+    printHeader('testWriteCredentialsToFilePath');
+    let r = {
+        variables: {
+            cache_instance_credentials_enabled: 0
+        }
+    };
+
+    var originalCredentialPath = process.env['AWS_CREDENTIALS_TEMP_FILE'];
+    var tempDir = (process.env['TMPDIR'] ? process.env['TMPDIR'] : '/tmp');
+    var uniqId = `${new Date().getTime()}-${Math.floor(Math.random()*101)}`;
+    var tempFile = `${tempDir}/credentials-unit-test-${uniqId}.json`;
+    var testData = {
+      accessKeyId:"A",
+      secretAccessKey:"B",
+      sessionToken:"C",
+      expiration:"2022-02-15T04:49:08Z"
+    };
+
+    try {
+        process.env['AWS_CREDENTIALS_TEMP_FILE'] = tempFile;
+        awscred.writeCredentials(r, testData);
+
+        var stats = fs.statSync(tempFile);
+
+        if (stats.mode & 0x70 || stats.mode & 0x7) {
+          throw 'Temporary file has anonymous or group permissions';
+        }
+
     } finally {
         if (originalCredentialPath) {
             process.env['AWS_CREDENTIALS_TEMP_FILE'] = originalCredentialPath;
@@ -311,6 +350,7 @@ async function test() {
     testReadCredentialsFromFilePath();
     testReadCredentialsFromNonexistentPath();
     testReadAndWriteCredentialsFromKeyValStore();
+    testWriteCredentialsToFilePath()
 }
 
 function printHeader(testName) {
